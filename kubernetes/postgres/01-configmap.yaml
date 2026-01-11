@@ -1,0 +1,102 @@
+apiVersion: v1 
+kind: ConfigMap
+metadata: 
+  name: postgres-init-scripts
+  namespace: postgres 
+data: 
+  init-db.sql: |
+    -- Create pipeline_info database
+    CREATE DATABASE pipeline_info;
+    
+    -- Connect to pipeline_info and run your DDL
+    \c pipeline_info;
+    
+    -- Your pipeline_info_ddl.sql content
+    DROP SCHEMA IF EXISTS state CASCADE;
+    CREATE SCHEMA state;
+    
+    CREATE TABLE state.pipeline_data (
+        pipeline_id SERIAL PRIMARY KEY,
+        pipeline_name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+    
+    CREATE TABLE state.pipeline_run (
+        run_id BIGSERIAL PRIMARY KEY,
+        pipeline_id INTEGER NOT NULL REFERENCES state.pipeline_data(pipeline_id) ON DELETE CASCADE,
+        started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        bronze_ended_at TIMESTAMP,
+        silver_ended_at TIMESTAMP,
+        gold_ended_at TIMESTAMP,
+        load_type VARCHAR(20) NOT NULL DEFAULT 'incremental' 
+            CHECK (load_type IN ('incremental', 'full', 'reconcile')),
+        ingestion_status TEXT NOT NULL DEFAULT 'running' 
+            CHECK (ingestion_status IN ('running', 'success', 'failed', 'partial')),
+        pipeline_status TEXT NOT NULL DEFAULT 'running' 
+            CHECK (pipeline_status IN ('running', 'success', 'failed', 'partial')),
+        failed_batch_count INTEGER NOT NULL DEFAULT 0 CHECK (failed_batch_count >= 0),
+        bronze_run_duration INTERVAL GENERATED ALWAYS AS (bronze_ended_at - started_at) STORED,
+        silver_run_duration INTERVAL GENERATED ALWAYS AS (silver_ended_at - bronze_ended_at) STORED,
+        gold_run_duration INTERVAL GENERATED ALWAYS AS (gold_ended_at - silver_ended_at) STORED,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        CHECK (bronze_ended_at IS NULL OR bronze_ended_at >= started_at),
+        CHECK (silver_ended_at IS NULL OR (silver_ended_at >= bronze_ended_at AND bronze_ended_at IS NOT NULL)),
+        CHECK (gold_ended_at IS NULL OR (gold_ended_at >= silver_ended_at AND silver_ended_at IS NOT NULL))
+    );
+    
+    CREATE TABLE state.entity_state (
+        batch_id BIGSERIAL PRIMARY KEY,
+        pipeline_id INTEGER NOT NULL REFERENCES state.pipeline_data(pipeline_id) ON DELETE CASCADE,
+        run_id BIGINT NOT NULL REFERENCES state.pipeline_run(run_id) ON DELETE CASCADE,
+        entity_name TEXT NOT NULL,
+        partition_key TEXT NOT NULL,
+        sql_text TEXT,
+        starting_watermark TIMESTAMP,
+        end_watermark TIMESTAMP,
+        high_watermark TIMESTAMP,
+        bronze_state_status TEXT NOT NULL DEFAULT 'pending' 
+            CHECK (bronze_state_status IN ('pending', 'success', 'skipped', 'failed')),
+        silver_state_status TEXT NOT NULL DEFAULT 'pending' 
+            CHECK (silver_state_status IN ('pending', 'success', 'skipped', 'failed')),
+        gold_state_status TEXT NOT NULL DEFAULT 'pending' 
+            CHECK (gold_state_status IN ('pending', 'success', 'skipped', 'failed')),
+        retries INTEGER NOT NULL DEFAULT 0,
+        started_at TIMESTAMP,
+        bronze_completed_at TIMESTAMP,
+        silver_completed_at TIMESTAMP,
+        gold_completed_at TIMESTAMP,
+        is_current_run BOOLEAN NOT NULL DEFAULT TRUE,
+        error_message TEXT,
+        bronze_execution_time INTERVAL GENERATED ALWAYS AS (bronze_completed_at - started_at) STORED,
+        silver_execution_time INTERVAL GENERATED ALWAYS AS (silver_completed_at - bronze_completed_at) STORED,
+        gold_execution_time INTERVAL GENERATED ALWAYS AS (gold_completed_at - silver_completed_at) STORED,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+    
+    -- Indexes
+    CREATE INDEX idx_pipeline_run_pipeline_id ON state.pipeline_run(pipeline_id);
+    CREATE INDEX idx_pipeline_run_started_at ON state.pipeline_run(started_at DESC);
+    CREATE INDEX idx_pipeline_run_status ON state.pipeline_run(pipeline_status);
+    CREATE INDEX idx_pipeline_run_load_type ON state.pipeline_run(load_type);
+    CREATE INDEX idx_pipeline_run_ingestion_status ON state.pipeline_run(ingestion_status);
+    
+    CREATE INDEX idx_entity_state_run_id ON state.entity_state(run_id);
+    CREATE INDEX idx_entity_state_pipeline_id ON state.entity_state(pipeline_id);
+    CREATE INDEX idx_entity_state_entity_name ON state.entity_state(entity_name);
+    CREATE INDEX idx_entity_state_partition_key ON state.entity_state(partition_key);
+    CREATE INDEX idx_entity_state_bronze_status ON state.entity_state(bronze_state_status);
+    
+    CREATE INDEX idx_entity_state_is_current_run 
+        ON state.entity_state(is_current_run, entity_name) 
+        WHERE is_current_run = TRUE;
+    
+    CREATE INDEX idx_entity_state_watermarks 
+        ON state.entity_state(entity_name, high_watermark DESC) 
+        WHERE is_current_run = TRUE AND high_watermark IS NOT NULL;
+    
+    -- Grants
+    GRANT USAGE ON SCHEMA state TO postgres;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA state TO postgres;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA state TO postgres;
+  

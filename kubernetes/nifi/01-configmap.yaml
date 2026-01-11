@@ -1,0 +1,33 @@
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: nifi-config
+  namespace: nifi 
+data: 
+  nifi.properties: |
+    # Core Properties 
+    nifi.flow.configuration.file=./conf/flow.xml.gz
+    nifi.flow.configuration.archive.enabled=true 
+    nifi.flow.configuration.archive.dir=./conf/archive
+
+    # Web Properties 
+    nifi.web.http.host=0.0.0.0
+    nifi.web.http.port=8080
+    nifi.web.http.network.interface.default=
+
+    # Security Properties - disabled for simplicity
+    nifi.security.user.login.identity.provider=
+    nifi.security.needClientAuth=false 
+
+    # Cluster Properties - Single Node 
+    nifi.cluster.is.node=False 
+
+    # State Management
+    nifi.state.management.configuration.file=./conf/state-management.xml
+
+    # Repository Properties
+    nifi.content.repository.directory.default=./content_repository
+    nifi.database.directory=./database_repository
+    nifi.flowfile.repository.directory=./flowfile_repository
+    nifi.provenance.repository.directory.default=./provenance_repository
+    
