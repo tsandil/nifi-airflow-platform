@@ -1,0 +1,101 @@
+executor: "LocalExecutor"
+
+# Webserver configuration
+webserver: 
+  replicas: 1 
+  resources:
+    requests:
+      cpu: 250m 
+      memory: 512Mi 
+    limits:
+      cpu: 500m 
+      memory: 1Gi 
+  service: 
+    type: NodePort 
+    ports: 
+      - name: airflow-ui 
+        port: 8080
+        nodePort: 30081
+
+# Scheduler Configuration
+scheduler: 
+  replicas: 1 
+  resources:
+    requests:
+      cpu: 250m 
+      memory: 512Mi 
+    limits:
+      cpu: 500m 
+      memory: 1Gi 
+
+# PostgreSQL - Use external PostgreSQL 
+postgresql: 
+  enabled: false 
+
+# Database Connection 
+data: 
+  metadataConnection: 
+    user: postgres
+    pass: postgres 
+    protocol: postgresql 
+    host: postgres.postgres.svc.cluster.local
+    port: 5432 
+    db: airflow 
+
+# Environment Variables
+env:
+  - name: AIRFLOW__CORE__LOAD_EXAMPLES
+    value: "False"
+  - name: AIRFLOW__WEBSERVER__EXPOSE_CONFIG
+    value: "True"
+  - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+    value: "False"
+
+# Install your package from TestPyPI
+extraPipPackages:
+  - "--index-url https://test.pypi.org/simple/"
+  - "--extra-index-url https://pypi.org/simple"
+  - "airflow-nifi-pipeline-utils==1.1.2"
+
+# DAGs configuration
+dags:
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: standard
+  gitSync:
+    enabled: false
+
+# Logs configuration
+logs:
+  persistence:
+    enabled: false 
+    size: 5Gi
+    storageClassName: standard
+
+# Create default admin user
+webserverSecretKey: "THIS_IS_A_VERY_SECURE_KEY_CHANGE_ME"
+
+# Default user credentials
+defaultUser:
+  enabled: true
+  role: Admin
+  username: admin
+  email: admin@example.com
+  firstName: Admin
+  lastName: User
+  password: admin
+
+# Disable features we don't need
+flower:
+  enabled: false
+redis:
+  enabled: false
+statsd:
+  enabled: false
+pgbouncer:
+  enabled: false
+
+# No separate workers for LocalExecutor
+workers:
+  replicas: 0
