@@ -1,0 +1,37 @@
+# Standalone mode — single pod, single PVC
+mode:
+  distributed:
+    enabled: false
+  standalone:
+    enabled: true
+
+image:
+  tag: "1.0.0-alpha.89"
+
+# S3 API credentials
+# Note: chart overrides secretKey to 'rustfsadmin' regardless of value set here
+auth:
+  accessKey: rustfsadmin
+  secretKey: rustfsadmin
+
+config:
+  consoleEnabled: true
+
+# Ingress — chart manages single ingress resource
+# Console accessible at rustfs-console.local via manual ingress patch
+ingress:
+  enabled: true
+  className: nginx
+  host: rustfs.local
+
+# Storage
+dataPersistence:
+  size: 10Gi
+  storageClassName: standard
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    memory: "512Mi"
