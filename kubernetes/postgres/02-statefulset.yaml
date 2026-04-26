@@ -31,10 +31,10 @@ spec:
           value: /var/lib/postgresql/data/pgdata
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "256Mi"
+            cpu: "100m"
           limits:
-            memory: "1Gi"
+            memory: "512Mi"
             cpu: "500m"
         volumeMounts:
         - name: postgres-data
@@ -46,17 +46,21 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U postgres
+            - pg_isready -U postgres -h localhost
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         readinessProbe:
           exec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U postgres
+            - pg_isready -U postgres -h localhost
           initialDelaySeconds: 10
           periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
       volumes:
       - name: init-scripts
         configMap:

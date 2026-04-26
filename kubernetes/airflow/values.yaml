@@ -1,15 +1,14 @@
 executor: "LocalExecutor"
 
-# Webserver configuration
-webserver: 
+# Airflow 3.x renamed webserver -> apiServer
+apiServer: 
   replicas: 1 
   resources:
     requests:
-      cpu: 250m 
-      memory: 512Mi 
+      cpu: "100m" 
+      memory: "512Mi" 
     limits:
-      cpu: 500m 
-      memory: 1Gi 
+      memory: "1500Mi" 
   service: 
     type: NodePort 
     ports: 
@@ -17,22 +16,44 @@ webserver:
         port: 8080
         nodePort: 30081
 
-# Scheduler Configuration
+# Scheduler Configuration - Scheduler runs DAGs directly under LocalExecutor
 scheduler: 
   replicas: 1 
   resources:
     requests:
-      cpu: 250m 
-      memory: 512Mi 
+      cpu: "200m"
+      memory: "512Mi" 
     limits:
-      cpu: 500m 
-      memory: 1Gi 
+      cpu: "500m" 
+      memory: "1Gi" 
+
+# Triggerer handles deferable operators (async tasks)
+triggerer:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      memory: "768Mi"
+
+# DAG processor is new in Airflow 3.x - parses DAG files
+dagProcessor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "300m"
+      memory: "512Mi"
 
 # PostgreSQL - Use external PostgreSQL 
 postgresql: 
   enabled: false 
 
-# Database Connection 
+# Database Connection - cross-namespace DNS format
+# Format: <service>.<namespace>.svc.cluster.local
 data: 
   metadataConnection: 
     user: postgres
@@ -51,27 +72,26 @@ env:
   - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
     value: "False"
 
-# Install your package from TestPyPI
-extraPipPackages:
-  - "--index-url https://test.pypi.org/simple/"
-  - "--extra-index-url https://pypi.org/simple"
-  - "airflow-nifi-pipeline-utils==1.1.2"
-
-# DAGs configuration
+# DAGs storage
 dags:
   persistence:
     enabled: true
     size: 5Gi
     storageClassName: standard
   gitSync:
-    enabled: false
+    enabled: False
 
-# Logs configuration
+# Logs - disabled persistence for local dev
 logs:
-  persistence:
+  persistence: 
     enabled: false 
-    size: 5Gi
-    storageClassName: standard
+
+
+# Install your package from TestPyPI
+extraPipPackages:
+  - "--index-url https://test.pypi.org/simple/"
+  - "--extra-index-url https://pypi.org/simple"
+  - "airflow-nifi-pipeline-utils==1.1.2"
 
 # Create default admin user
 webserverSecretKey: "THIS_IS_A_VERY_SECURE_KEY_CHANGE_ME"
@@ -86,7 +106,7 @@ defaultUser:
   lastName: User
   password: admin
 
-# Disable features we don't need
+# Disabled - not needed for LocalExecutor setup
 flower:
   enabled: false
 redis:
@@ -95,7 +115,5 @@ statsd:
   enabled: false
 pgbouncer:
   enabled: false
-
-# No separate workers for LocalExecutor
-workers:
+workers: 
   replicas: 0

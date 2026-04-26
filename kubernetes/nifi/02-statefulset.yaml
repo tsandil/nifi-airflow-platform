@@ -13,6 +13,7 @@ spec:
     metadata:
       labels:
         app: nifi
+        component: ingestion
     spec:
       containers:
       - name: nifi
@@ -30,7 +31,7 @@ spec:
         - name: SINGLE_USER_CREDENTIALS_PASSWORD
           value: "adminadminadmin"
         - name: NIFI_JVM_HEAP_INIT
-          value: "256m"
+          value: "512m"
         - name: NIFI_JVM_HEAP_MAX
           value: "1g"
         resources:
@@ -38,7 +39,7 @@ spec:
             memory: "1Gi"
             cpu: "250m"
           limits:
-            memory: "2Gi"
+            memory: "1536Mi"
             cpu: "1000m"
         volumeMounts:
         - name: nifi-data
@@ -63,6 +64,7 @@ spec:
           initialDelaySeconds: 120
           periodSeconds: 30
           timeoutSeconds: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /nifi
@@ -70,6 +72,7 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 10
+          failureThreshold: 3  
   volumeClaimTemplates:
   - metadata:
       name: nifi-data
