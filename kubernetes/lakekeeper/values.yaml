@@ -1,0 +1,10 @@
+USER-SUPPLIED VALUES:
+catalog:
+  authz:
+    backend: allowall
+  encryptionKey: local-dev-key-change-in-prod
+  ingress:
+    enabled: true
+    host: lakekeeper.local
+    ingressClassName: nginx
+    path: /
