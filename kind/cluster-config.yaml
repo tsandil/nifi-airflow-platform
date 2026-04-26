@@ -1,13 +1,26 @@
-# cluster-config.yaml
+# kind/cluster-config.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: nifi-airflow-dev
-nodes: 
-- role: control-plane
-  extraPortMappings: 
-    - containerPort: 8080
-      hostPort: 8080
-      protocol: TCP
-    - containerPort: 8081
-      hostPort: 8081
-      protocol: TCP
+nodes:
+  - role: control-plane
+    # Required for NGINX Ingress Controller to be schedulable on this node
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # Ingress HTTP - this is how nifi.local and airflow.local will be reached
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      # Ingress HTTPS - for future TLS termination
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+      # Postgres direct access from your Mac for local dbt/psql work
+      - containerPort: 30432
+        hostPort: 5432
+        protocol: TCP
